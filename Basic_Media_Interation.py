@@ -1,7 +1,15 @@
 from typing import Final
+from pydub import AudioSegment
+import os
 import requests
 from telegram import Update, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+
+# Function to convert audio to mp3
+def convert_audio_to_mp3(source_path, target_path):
+    audio = AudioSegment.from_file(source_path)
+    audio.export(target_path, format="mp3")
 
 print('Starting up bot1...')
 
@@ -37,18 +45,21 @@ def handle_response(text: str) -> str:
 
 # Handle text messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message_type: str = update.message.chat.type
     text: str = update.message.text
-    print(f'User ({update.message.chat.id}) in {message_type}: "{text}"')
+    chat_id = update.message.chat_id
 
-    if message_type == 'group' and BOT_USERNAME in text:
-        new_text: str = text.replace(BOT_USERNAME, '').strip()
-        response: str = handle_response(new_text)
-    else:
-        response: str = handle_response(text)
+    if text.lower() == 'test':
+        # Check if the photo file exists and send it
+        if os.path.exists('user_photo.jpg'):
+            await context.bot.send_photo(chat_id=chat_id, photo=open('user_photo.jpg', 'rb'))
+        else:
+            await update.message.reply_text('No photo available.')
 
-    print('Bot:', response)
-    await update.message.reply_text(response)
+        # Check if the audio file exists and send it
+        if os.path.exists('user_audio.mp3'):
+            await context.bot.send_audio(chat_id=chat_id, audio=open('user_audio.mp3', 'rb'))
+        else:
+            await update.message.reply_text('No audio available.')
 
 
 # Handle photos
@@ -65,11 +76,22 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def audio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     audio_file = await context.bot.get_file(update.message.audio.file_id)
     file_url = audio_file.file_path
+    file_extension = os.path.splitext(file_url)[1]
+
+    temp_file_name = f'temp_audio{file_extension}'
+    mp3_file_name = 'user_audio.mp3'
+
+    # Download the original audio file
     response = requests.get(file_url)
     if response.status_code == 200:
-        with open('user_audio.mp3', 'wb') as f:
+        with open(temp_file_name, 'wb') as f:
             f.write(response.content)
-        await update.message.reply_text('Audio received!')
+        
+        # Convert to mp3 and save
+        convert_audio_to_mp3(temp_file_name, mp3_file_name)
+        os.remove(temp_file_name)  # Remove the temporary file
+
+        await update.message.reply_text('Audio received and converted to MP3!')
 
 # Send image
 async def send_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
