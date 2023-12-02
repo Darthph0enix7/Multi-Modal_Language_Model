@@ -1,5 +1,6 @@
 import os
 import requests
+import llama_cpp
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -10,6 +11,64 @@ print('Starting up bot...')
 
 TOKEN: Final = '6339894997:AAFr8fEKOYLPhhsJoBg-zwFCu9TmIT2uNZQ'
 BOT_USERNAME: Final = '@Enpoi_Omni_Bot'
+
+class OmniBot:
+    def __init__(self, model_path, n_ctx=4096, n_gpu_layers=35):
+        self.llama_model = llama_cpp.Llama(model_path=model_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers, verbose=True)
+        self.history = []
+
+    def system_message(self, user_name=None, user_mutter_tongue=None, user_german_proficiency=None):
+        # Check if all necessary user information is available:
+        return f"""
+            You are OmniBot, developed by enpoi.com and Eren Kalinsazlioglu. Your job is to be a respectfull assistant and comunicate with the user.
+
+            you have access to these fallowing tools:
+            - image generating
+            - image classification
+            - audio generation
+            - video analysis
+
+            to you these tools you must write 'needtools' for example:
+
+            user: Read the following text out loud
+            response: needtools
+
+            user Draw me a picture of rivers and lakes.
+            response: needtools
+            
+            user: Generate a picture of rivers and lakes.
+            response: needtools
+            """
+
+    def add_message(self, role, content):
+        self.history.append({"role": role, "content": content})
+
+    def generate_response(self, user_input):
+        # Format the prompt consistently
+        formatted_input = f"Q: {user_input} A: "
+        self.add_message("user", formatted_input)
+
+        # Prepare messages for the model
+        system_msg= self.system_message()
+        messages = [{"role": "system", "content": system_msg}] + self.history
+
+        # Call the model
+        completion = self.llama_model.create_chat_completion(messages=messages,
+                                                             max_tokens=300,
+                                                             stop=["Q:"]
+                                                            )
+
+        # Extract only the assistant's response
+        assistant_response = completion['choices'][0]['message']['content']
+        self.add_message("assistant", assistant_response)
+
+        # Return only the assistant's response
+        return assistant_response.strip()  # .strip() removes any leading/trailing whitespace
+
+    def clear_memory(self):
+        self.history = []
+
+omnibot = OmniBot(model_path='/home/adam/Telegram_Bot/mistral-7b-instruct-v0.1.Q4_0.gguf')
 
 # Start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,20 +133,21 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Handle messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text: str = update.message.text
-    chat_id = update.message.chat_id
-    
-    print(f"Received message from user {chat_id}: '{text}'")
+    text = update.message.text.strip()
+    print(f'Received message text: "{text}"')
 
-    if text.lower() == 'test':
-        for file_name in ['user_photo.jpg', 'user_audio.mp3', 'user_video.mp4']:
-            if os.path.exists(file_name):
-                await context.bot.send_document(chat_id=chat_id, document=open(file_name, 'rb'))
-            else:
-                await update.message.reply_text(f'No {file_name} available.')
+    if not text:
+        await update.message.reply_text("Your message is empty. Please enter a valid message.")
+        return
 
+    llm_response = omnibot.generate_response(text)
+    if "needtools" in llm_response:
+        print("Needed_tools")
     else:
-        await update.message.reply_text("I'm not sure how to respond to that.")
+        await update.message.reply_text(llm_response)
+
+    print(f'User said: "{text}"')
+    print(f'Bot replied with: "{llm_response}"')
 
 # Log errors
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
