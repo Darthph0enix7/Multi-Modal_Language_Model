@@ -60,6 +60,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_audio(chat_id=chat_id, audio=open('user_audio.mp3', 'rb'))
         else:
             await update.message.reply_text('No audio available.')
+    else:
+        # Existing message handling logic
+        response: str = handle_response(text)
+        print('Bot:', response)
+        await update.message.reply_text(response)
 
 
 # Handle photos
@@ -74,6 +79,7 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Handle audio
 async def audio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     audio_file = await context.bot.get_file(update.message.audio.file_id)
     file_url = audio_file.file_path
     file_extension = os.path.splitext(file_url)[1]
