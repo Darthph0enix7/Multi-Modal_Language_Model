@@ -1,11 +1,12 @@
 from typing import Final
+import requests
 from telegram import Update, InputFile
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 print('Starting up bot1...')
 
-TOKEN: Final = 'Your_Token_Here'
-BOT_USERNAME: Final = '@YourBotUsername'
+TOKEN: Final = '6339894997:AAFr8fEKOYLPhhsJoBg-zwFCu9TmIT2uNZQ'
+BOT_USERNAME: Final = '@Enpoi_Omni_Bot'
 
 # Start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,17 +50,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print('Bot:', response)
     await update.message.reply_text(response)
 
+
 # Handle photos
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo_file = await update.message.photo[-1].get_file()
-    await photo_file.download('user_photo.jpg')
-    await update.message.reply_text('Photo received!')
+    photo_file = await context.bot.get_file(update.message.photo[-1].file_id)
+    file_url = photo_file.file_path
+    response = requests.get(file_url)
+    if response.status_code == 200:
+        with open('user_photo.jpg', 'wb') as f:
+            f.write(response.content)
+        await update.message.reply_text('Photo received!')
 
 # Handle audio
 async def audio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    audio_file = await update.message.audio.get_file()
-    await audio_file.download('user_audio.mp3')
-    await update.message.reply_text('Audio received!')
+    audio_file = await context.bot.get_file(update.message.audio.file_id)
+    file_url = audio_file.file_path
+    response = requests.get(file_url)
+    if response.status_code == 200:
+        with open('user_audio.mp3', 'wb') as f:
+            f.write(response.content)
+        await update.message.reply_text('Audio received!')
 
 # Send image
 async def send_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
