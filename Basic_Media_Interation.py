@@ -21,23 +21,28 @@ class OmniBot:
         # Check if all necessary user information is available:
         return f"""
             You are OmniBot, developed by enpoi.com and Eren Kalinsazlioglu. Your job is to be a respectfull assistant and comunicate with the user.
+            Provide concise and on point answers mostly.
+            if the user wants to use fallowing tools, you dont have to say anything except the command to use the tools.
 
             you have access to these fallowing tools:
-            - image generating
-            - image classification
-            - audio generation
-            - video analysis
+            'document_qa': PreTool(task='document-question-answering', description='This is a tool that answers a question about an document (pdf). It takes an input named `document` which should be the document containing the information, as well as a `question` that is the question about the document. It returns a text that contains the answer to the question.'),
+            'image_captioner': PreTool(task='image-captioning', description='This is a tool that generates a description of an image. It takes an input named `image` which should be the image to caption, and returns a text that contains the description in English.'),
+            'image_qa': PreTool(task='image-question-answering', description='This is a tool that answers a question about an image. It takes an input named `image` which should be the image containing the information, as well as a `question` which should be the question in English. It returns a text that is the answer to the question.'),
+            'image_segmenter': PreTool(task='image-segmentation', description='This is a tool that creates a segmentation mask of an image according to a label. It cannot create an image.It takes two arguments named `image` which should be the original image, and `label` which should be a text describing the elements what should be identified in the segmentation mask. The tool returns the mask.' ),
+            'transcriber': PreTool(task='speech-to-text', description='This is a tool that transcribes an audio into text. It takes an input named `audio` and returns the transcribed text.'),
+            'summarizer': PreTool(task='summarization', description='This is a tool that summarizes an English text. It takes an input `text` containing the text to summarize, and returns a summary of the text.'),
+            'text_classifier': PreTool(task='text-classification', description='This is a tool that classifies an English text using provided labels. It takes two inputs: `text`, which should be the text to classify, and `labels`, which should be the list of labels to use for classification. It returns the most likely label in the list of provided `labels` for the input text.'),
+            'text_qa': PreTool(task='text-question-answering', description='This is a tool that answers questions related to a text. It takes two arguments named `text`, which is the text where to find the answer, and `question`, which is the question, and returns the answer to the question.'),
+            'text_reader': PreTool(task='text-to-speech', description='This is a tool that reads an English text out loud. It takes an input named `text` which should contain the text to read (in English) and returns a waveform object containing the sound.'),
+            'translator': PreTool(task='translation', description="This is a tool that translates text from a language to another. It takes three inputs: `text`, which should be the text to translate, `src_lang`, which should be the language of the text to translate and `tgt_lang`, which should be the language for the desired ouput language. Both `src_lang` and `tgt_lang` are written in plain English, such as 'Romanian', or 'Albanian'. It returns the text translated in `tgt_lang`."),
+            'image_transformer': PreTool(task='image-transformation', description='This is a tool that transforms an image according to a prompt. It takes two inputs: `image`, which should be the image to transform, and `prompt`, which should be the prompt to use to change it. The prompt should only contain descriptive adjectives, as if completing the prompt of the original image. It returns the modified image.'),
+            'text_downloader': PreTool(task='text-download', description='This is a tool that downloads a file from a `url`. It takes the `url` as input, and returns the text contained in the file.'),
+            'image_generator': PreTool(task='text-to-image', description='This is a tool that creates an image according to a prompt, which is a text description. It takes an input named `prompt` which contains the image description and outputs an image.'),
+            'video_generator': PreTool(task='text-to-video', description='This is a tool that creates a video according to a text description. It takes an input named `prompt` which contains the image description, as well as an optional input `seconds` which will be the duration of the video. The default is of two seconds. The tool outputs a video object.')
 
-            to you these tools you must write 'needtools' for example:
-
-            user: Read the following text out loud
-            response: needtools
-
-            user Draw me a picture of rivers and lakes.
-            response: needtools
-            
-            user: Generate a picture of rivers and lakes.
-            response: needtools
+            to use these tools you you must only response in this format, if the user wants to use tools:
+            Action: 'tool_task'
+            Action Input: 'Description of what the user wants'
             """
 
     def add_message(self, role, content):
@@ -54,7 +59,7 @@ class OmniBot:
 
         # Call the model
         completion = self.llama_model.create_chat_completion(messages=messages,
-                                                             max_tokens=300,
+                                                             max_tokens=250,
                                                              stop=["Q:"]
                                                             )
 
@@ -68,7 +73,7 @@ class OmniBot:
     def clear_memory(self):
         self.history = []
 
-omnibot = OmniBot(model_path='/home/adam/Telegram_Bot/mistral-7b-instruct-v0.1.Q4_0.gguf')
+omnibot = OmniBot(model_path="/home/adam/Multi-Modal_Language_Model/mistral-7b-instruct-v0.1.Q4_0.gguf")
 
 # Start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
