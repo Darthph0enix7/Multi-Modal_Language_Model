@@ -1,9 +1,12 @@
 import os
 import requests
 import llama_cpp
+import mimetypes
+from PIL import Image
 from typing import Final
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from transformers.tools.agent_types import AgentText, AgentAudio
 from pydub import AudioSegment
 from moviepy.editor import VideoFileClip
 from transformers.tools import HfAgent
@@ -88,6 +91,29 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Send me a message and I\'ll respond!')
 
+
+def determine_response_type(response):
+    if isinstance(response, Image.Image):
+        return "image"
+    elif isinstance(response, AgentAudio):
+        return "audio"
+    elif isinstance(response, AgentText):
+        return "text"
+    elif isinstance(response, str):
+        # Check for file path and determine type based on extension or MIME type
+        if os.path.exists(response):
+            mime_type, _ = mimetypes.guess_type(response)
+            if mime_type:
+                if 'image' in mime_type:
+                    return "image"
+                elif 'audio' in mime_type:
+                    return "audio"
+                elif 'video' in mime_type:
+                    return "video"
+            return "file"
+        return "text"
+    return "unknown"
+
 # Function to convert audio to mp3
 def convert_audio_to_mp3(source_path, target_path):
     audio = AudioSegment.from_file(source_path)
@@ -144,7 +170,8 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Handle messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-    print(f'Received message text: "{text}"')
+    user_id = str(update.message.from_user.id)
+    print(f'user: {user_id} Received message text: "{text}"')
 
     if not text:
         await update.message.reply_text("Your message is empty. Please enter a valid message.")
@@ -154,7 +181,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if contains_keyword:
         await update.message.reply_text("Tools are been used a moment please")
         agent_response = agent.chat(text)
-        await update.message.reply_text(agent_response)
+        response_type = determine_response_type(agent_response)
+
+        if response_type == "image":
+            with open(agent_response, 'rb') as image_file:
+                await context.bot.send_photo(chat_id=user_id, photo=image_file)
+
+        elif response_type == "audio":
+            with open(agent_response, 'rb') as audio_file:
+                await context.bot.send_audio(chat_id=user_id, audio=audio_file)
+
+        elif response_type == "video":
+            with open(agent_response, 'rb') as video_file:
+                await context.bot.send_video(chat_id=user_id, video=video_file)
+
+        elif response_type == "text":
+            await context.bot.send_message(chat_id=user_id, text=agent_response)
+
+        elif response_type == "file":
+            mime_type, _ = mimetypes.guess_type(agent_response)
+            if 'video' in mime_type:
+                with open(agent_response, 'rb') as video_file:
+                    await context.bot.send_video(chat_id=user_id, video=video_file)
+            elif 'audio' in mime_type:
+                with open(agent_response, 'rb') as audio_file:
+                    await context.bot.send_audio(chat_id=user_id, audio=audio_file)
+            else:
+                # Default to sending as a document
+                with open(agent_response, 'rb') as file:
+                    await context.bot.send_document(chat_id=user_id, document=file)
+        else:
+            print("Unknown response type or unable to handle the response.")
     else:
         await update.message.reply_text(llm_response)
 
