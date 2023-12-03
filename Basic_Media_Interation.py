@@ -6,6 +6,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from pydub import AudioSegment
 from moviepy.editor import VideoFileClip
+from transformers.tools import HfAgent
 
 print('Starting up bot...')
 
@@ -22,7 +23,7 @@ class OmniBot:
         return f"""
             You are OmniBot, developed by enpoi.com and Eren Kalinsazlioglu. Your job is to be a respectfull assistant and comunicate with the user.
             Provide concise and on point answers mostly.
-            if the user wants to use fallowing tools, you dont have to say anything except the command to use the tools.
+            if the user wants something other than a normal conversation, use fallowing tools, you dont have to say anything except the command to use the tools.
 
             you have access to these fallowing tools:
             'document_qa': PreTool(task='document-question-answering', description='This is a tool that answers a question about an document (pdf). It takes an input named `document` which should be the document containing the information, as well as a `question` that is the question about the document. It returns a text that contains the answer to the question.'),
@@ -66,14 +67,18 @@ class OmniBot:
         # Extract only the assistant's response
         assistant_response = completion['choices'][0]['message']['content']
         self.add_message("assistant", assistant_response)
+        keywords = ['action', 'Action Input']
+        contains_keyword = any(keyword in assistant_response for keyword in keywords)
 
         # Return only the assistant's response
-        return assistant_response.strip()  # .strip() removes any leading/trailing whitespace
+        return assistant_response.strip(), contains_keyword  # .strip() removes any leading/trailing whitespace
 
     def clear_memory(self):
         self.history = []
 
 omnibot = OmniBot(model_path="/home/adam/Multi-Modal_Language_Model/mistral-7b-instruct-v0.1.Q4_0.gguf")
+agent = HfAgent("https://api-inference.huggingface.co/models/bigcode/starcoder")
+print("StarCoder is initialized 💪")
 
 # Start command
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -145,9 +150,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Your message is empty. Please enter a valid message.")
         return
 
-    llm_response = omnibot.generate_response(text)
-    if "needtools" in llm_response:
-        print("Needed_tools")
+    llm_response, contains_keyword  = omnibot.generate_response(text)
+    if contains_keyword:
+        await update.message.reply_text("Tools are been used a moment please")
+        agent_response = agent.chat(text)
+        await update.message.reply_text(agent_response)
     else:
         await update.message.reply_text(llm_response)
 
