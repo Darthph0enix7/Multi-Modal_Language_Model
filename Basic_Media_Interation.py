@@ -1,5 +1,6 @@
 import os
 import requests
+from io import BytesIO
 import llama_cpp
 import mimetypes
 from PIL import Image
@@ -146,7 +147,14 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_url = photo_file.file_path
     with open('user_photo.jpg', 'wb') as f:
         f.write(requests.get(file_url).content)
-    await update.message.reply_text('Photo received!')
+    
+    # Convert the image to bytes
+    image_bytes = BytesIO()
+    with open('user_photo.jpg', 'rb') as image_file:
+        image_bytes.write(image_file.read())
+    
+    # Send the image as a photo to the user
+    await context.bot.send_photo(chat_id=update.message.chat_id, photo=image_bytes)
 
 # Handle audio
 async def audio_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -199,12 +207,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Action: {action}")
         print(f"Action Input: {action_input}")
 
-        await update.message.reply_text("Tools are been used a moment please")
-        agent_response = agent.chat(text)
+        await update.message.reply_text("Tools are being used a moment please")
+        new_text = f" {text} Task: {action} Prompt: {action_input}"
+        agent_response = agent.chat(new_text, return_code=True)
         response_type = determine_response_type(agent_response)
 
         if response_type == "image":
-            with open(agent_response, 'rb') as image_file:
+            # Assuming agent_response is an Image object
+            agent_response.save("temp_image.jpg")  # Save the image to a temporary file
+            with open("temp_image.jpg", 'rb') as image_file:
                 await context.bot.send_photo(chat_id=user_id, photo=image_file)
 
         elif response_type == "audio":
@@ -260,6 +271,12 @@ async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif message.document:
         # Handle document messages
         await file_handler(update, context)
+    elif message.sticker:
+        # Handle sticker messages
+        await sticker_handler(update, context)
+    elif message.animation:
+        # Handle animation messages
+        await animation_handler(update, context)
 
 # Run the program
 if __name__ == '__main__':
