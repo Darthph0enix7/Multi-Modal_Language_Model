@@ -73,8 +73,24 @@ class OmniBot:
         keywords = ['action', 'Action Input']
         contains_keyword = any(keyword in assistant_response for keyword in keywords)
 
+
+
         # Return only the assistant's response
         return assistant_response.strip(), contains_keyword  # .strip() removes any leading/trailing whitespace
+    def extract_action_and_input(self, assistant_response):
+        action = ""
+        action_input = ""
+
+        lines = assistant_response.split('\n')
+        for line in lines:
+            if "Action:" in line:
+                action = line.split("Action:")[1].strip()
+            elif "Action Input:" in line:
+                action_input = line.split("Action Input:")[1].strip()
+
+
+
+        return action, action_input
 
     def clear_memory(self):
         self.history = []
@@ -179,6 +195,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     llm_response, contains_keyword  = omnibot.generate_response(text)
     if contains_keyword:
+        action, action_input = omnibot.extract_action_and_input(llm_response)
+        print(f"Action: {action}")
+        print(f"Action Input: {action_input}")
+
         await update.message.reply_text("Tools are been used a moment please")
         agent_response = agent.chat(text)
         response_type = determine_response_type(agent_response)
